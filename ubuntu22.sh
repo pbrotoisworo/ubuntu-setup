@@ -3,7 +3,9 @@
 # Ubuntu 22 Setup Script
 # Basic commands to update apt and prepare system
 
-set -e  # Exit on any error
+# Initialize tracking arrays
+installed_successfully=()
+failed_installs=()
 
 echo "Starting Ubuntu 22.x setup..."
 
@@ -22,7 +24,11 @@ if [[ -z "$python_versions" ]]; then
 else
     # Add deadsnakes PPA for Python versions
     echo "Adding deadsnakes PPA..."
-    sudo add-apt-repository ppa:deadsnakes/ppa -y
+    if sudo add-apt-repository ppa:deadsnakes/ppa -y; then
+        installed_successfully+=("deadsnakes PPA")
+    else
+        failed_installs+=("deadsnakes PPA")
+    fi
     
     # Update package list after adding PPA
     sudo apt update
@@ -37,22 +43,63 @@ else
         
         if [[ "$version" == "3.11" ]]; then
             echo "Installing Python 3.11..."
-            sudo apt install python3.11 python3.11-venv python3.11-dev -y
+            if sudo apt install python3.11 python3.11-venv python3.11-dev -y; then
+                installed_successfully+=("Python 3.11")
+            else
+                failed_installs+=("Python 3.11")
+            fi
         elif [[ "$version" == "3.12" ]]; then
             echo "Installing Python 3.12..."
-            sudo apt install python3.12 python3.12-venv python3.12-dev -y
+            if sudo apt install python3.12 python3.12-venv python3.12-dev -y; then
+                installed_successfully+=("Python 3.12")
+            else
+                failed_installs+=("Python 3.12")
+            fi
         else
             echo "Warning: Python version '$version' not supported. Skipping..."
+            failed_installs+=("Python $version (unsupported)")
         fi
     done
 fi
 
 # Upgrade existing packages
 echo "Upgrading existing packages..."
-sudo apt upgrade -y
+if sudo apt upgrade -y; then
+    installed_successfully+=("Package upgrades")
+else
+    failed_installs+=("Package upgrades")
+fi
 
 # Update package database
 echo "Updating package database..."
 sudo apt update
 
+# Print installation summary
+echo ""
+echo "=== INSTALLATION SUMMARY ==="
+echo ""
+
+if [ ${#installed_successfully[@]} -gt 0 ]; then
+    echo "✅ Successfully installed/completed:"
+    for item in "${installed_successfully[@]}"; do
+        echo "   - $item"
+    done
+    echo ""
+fi
+
+if [ ${#failed_installs[@]} -gt 0 ]; then
+    echo "❌ Failed installations:"
+    for item in "${failed_installs[@]}"; do
+        echo "   - $item"
+    done
+    echo ""
+fi
+
+if [ ${#failed_installs[@]} -eq 0 ]; then
+    echo "🎉 All installations completed successfully!"
+else
+    echo "⚠️  Some installations failed. Check the output above for details."
+fi
+
+echo ""
 echo "Setup complete."
